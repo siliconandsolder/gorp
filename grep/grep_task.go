@@ -15,7 +15,7 @@ type GrepMatch struct {
 }
 
 func (match GrepMatch) printInfo() {
-	fmt.Printf("\tLine [%d] %s\n\tMatches found: %d", match.lineNum, match.content, match.matches)
+	fmt.Printf("\tLine [%d] %s\n\tMatches found: %d\n", match.lineNum, match.content, match.matches)
 }
 
 func (match GrepMatch) printVerbose() {
@@ -32,17 +32,13 @@ type GrepTask struct {
 func (gt *GrepTask) run() {
 
 	if gt.settings.verboseMode {
-		gt.comms.conMtx.Lock()
 		fmt.Printf("Scanning %s\n", gt.fileName)
-		gt.comms.conMtx.Unlock()
 	}
 
 	file, err := os.Open(gt.fileName)
 
 	if err != nil {
-		gt.comms.conMtx.Lock()
 		fmt.Printf("Could not open %s\n", gt.fileName)
-		gt.comms.conMtx.Unlock()
 		return
 	}
 
@@ -60,9 +56,7 @@ func (gt *GrepTask) run() {
 
 		if lineMatches > 0 {
 			if gt.settings.verboseMode {
-				gt.comms.conMtx.Lock()
 				GrepMatch{gt.fileName, lineNum, lineMatches, lineText}.printVerbose()
-				gt.comms.conMtx.Unlock()
 			} else {
 				gt.results = append(gt.results, GrepMatch{gt.fileName, lineNum, lineMatches, lineText})
 			}
@@ -83,4 +77,6 @@ func (gt *GrepTask) run() {
 	}
 
 	gt.comms.statCn <- totalMatches
+
+	//time.Sleep(5 * time.Second)
 }

@@ -2,7 +2,8 @@ package grep
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 type FileTask struct {
@@ -12,7 +13,7 @@ type FileTask struct {
 }
 
 func (ft *FileTask) run() {
-	files, err := ioutil.ReadDir(ft.directory)
+	files, err := os.ReadDir(ft.directory)
 	if err != nil {
 		ft.comms.conMtx.Lock()
 		fmt.Printf("Could not parse directory: %s\n", ft.directory)
@@ -27,7 +28,7 @@ func (ft *FileTask) run() {
 					results:  make([]GrepMatch, 0),
 					settings: ft.settings,
 					comms:    ft.comms,
-					fileName: file.Name(),
+					fileName: filepath.Join(ft.directory, file.Name()),
 				}
 			}
 		}

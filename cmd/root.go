@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/siliconandsolder/gorp/grep"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +12,8 @@ var RootCmd = &cobra.Command{
 	Short: "Greppin' with Go!",
 	Run: func(cmd *cobra.Command, args []string) {
 		gm := grep.NewGrepManager(verboseMode, args[1], args[2], args[3:])
-		fmt.Printf("%v", gm)
+		//fmt.Printf("%v", gm)
+		gm.FindMatches()
 	},
 }
 

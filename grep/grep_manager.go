@@ -1,7 +1,6 @@
 package grep
 
 import (
-	"container/list"
 	"fmt"
 	"regexp"
 	"strings"
@@ -28,7 +27,8 @@ type GrepManager struct {
 	settings GrepSettings
 	comms    GrepComms
 
-	matches    list.List
+	rootDir    string
+	matches    []GrepMatch
 	listMtx    sync.Mutex
 	matchCount uint32
 	fileCount  uint32
@@ -54,64 +54,87 @@ func NewGrepManager(verboseMode bool, rootDir string, expression string, extensi
 			taskCn:    make(chan Task, DEFAULT_GO_ROUTINES),
 			resultsCn: make(chan []GrepMatch, DEFAULT_GO_ROUTINES),
 		},
-		matches:    *list.New(),
+		rootDir:    rootDir,
 		matchCount: 0,
 		fileCount:  0,
 	}
 }
 
 func (gm *GrepManager) FindMatches() {
-	var runningTasks uint32 = 0
-	var wg sync.WaitGroup
-	for i := 0; i < DEFAULT_GO_ROUTINES; i++ {
+	var wgResult sync.WaitGroup
+	wgResult.Add(1)
 
-		go resultsWorker(gm.comms.resultsCn, &gm.matches, &gm.listMtx)
+	var wgStat sync.WaitGroup
+	wgStat.Add(1)
 
-		go statsWorker(gm.comms.statCn, &gm.matchCount, &gm.fileCount)
+	var wgTask sync.WaitGroup
+	wgTask.Add(1)
 
-		wg.Add(1)
-		go taskWorker(gm.comms.taskCn, &runningTasks, &wg)
+	gm.comms.taskCn <- &DirectoryTask{
+		directory: gm.rootDir,
+		settings:  gm.settings,
+		comms:     &gm.comms,
 	}
-	wg.Wait()
-	close(gm.comms.resultsCn)
-	close(gm.comms.statCn)
+
+	gm.comms.taskCn <- &FileTask{
+		directory: gm.rootDir,
+		settings:  gm.settings,
+		comms:     &gm.comms,
+	}
+
+	go resultsWorker(gm.comms.resultsCn, &gm.matches, &wgResult)
+	go statsWorker(gm.comms.statCn, &gm.matchCount, &gm.fileCount, &wgStat)
+	go taskWorker(gm.comms.taskCn, &wgTask)
+
+	wgTask.Wait()
 	close(gm.comms.taskCn)
+	close(gm.comms.resultsCn)
+	wgResult.Wait()
+	close(gm.comms.statCn)
+	wgStat.Wait()
+	gm.printMatches()
 }
 
-func resultsWorker(results <-chan []GrepMatch, matches *list.List, mtx *sync.Mutex) {
+func resultsWorker(results <-chan []GrepMatch, matches *[]GrepMatch, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for result := range results {
-		mtx.Lock()
-		matches.PushBack(result)
-		mtx.Unlock()
+		*matches = append(*matches, result...)
 	}
 }
 
-func statsWorker(stats <-chan uint32, numMatches *uint32, numFiles *uint32) {
+func statsWorker(stats <-chan uint32, numMatches *uint32, numFiles *uint32, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for stat := range stats {
-		if *numMatches > 0 {
+		if stat > 0 {
 			atomic.AddUint32(numMatches, stat)
 			atomic.AddUint32(numFiles, 1)
 		}
 	}
 }
 
-func taskWorker(tasks <-chan Task, numRunningTasks *uint32, wg *sync.WaitGroup) {
+func taskWorker(tasks <-chan Task, wg *sync.WaitGroup) {
 	defer wg.Done()
-	for t := range tasks {
-		atomic.AddUint32(numRunningTasks, 1)
-		t.run()
-		atomic.AddUint32(numRunningTasks, ^uint32(0))
-
-		if *numRunningTasks == 0 && len(tasks) == 0 {
-			break
+out:
+	for {
+		select {
+		case t := <-tasks:
+			t.run()
+		default:
+			break out
 		}
 	}
 }
 
-func (gm GrepManager) printMatches() {
-	if !gm.settings.verboseMode && gm.matches.Len() > 0 {
-		for item := gm.matches.Front(); item != nil; item.Next() {
-			item.Value.(*GrepMatch).printInfo()
+func (gm *GrepManager) printMatches() {
+	if !gm.settings.verboseMode && len(gm.matches) > 0 {
+		path := gm.matches[0].path
+		fmt.Println(path)
+		for _, match := range gm.matches {
+			if path != match.path {
+				fmt.Println(match.path)
+				path = match.path
+			}
+			match.printInfo()
 		}
 	}
 
