@@ -15,9 +15,7 @@ type DirectoryTask struct {
 func (dt *DirectoryTask) run() {
 	files, err := os.ReadDir(dt.directory)
 	if err != nil {
-		dt.comms.conMtx.Lock()
 		fmt.Printf("Could not parse directory: %s\n", dt.directory)
-		dt.comms.conMtx.Unlock()
 	}
 
 	for _, file := range files {

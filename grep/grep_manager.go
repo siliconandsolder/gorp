@@ -20,7 +20,6 @@ type GrepComms struct {
 	statCn    chan uint32
 	taskCn    chan Task
 	resultsCn chan []GrepMatch
-	conMtx    sync.Mutex
 }
 
 type GrepManager struct {
@@ -29,7 +28,6 @@ type GrepManager struct {
 
 	rootDir    string
 	matches    []GrepMatch
-	listMtx    sync.Mutex
 	matchCount uint32
 	fileCount  uint32
 }
