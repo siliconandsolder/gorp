@@ -2,7 +2,7 @@
 Almost a portmanteau of Go and Grep. 
 
 ## What is this?
-This is a tiny grep-like application that searches files for strings that match a regular expression.
+This is a tiny grep-like application that searches files for strings that match a regular expression. The purpose of this project was to teach myself about Go's channels and goroutines. This is not a practical tool.
 
 ## Usage
 There are two modes for this application: regular and verbose.
