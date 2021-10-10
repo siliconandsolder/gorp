@@ -93,6 +93,23 @@ func (gm *GrepManager) FindMatches() {
 	gm.printMatches()
 }
 
+func (gm *GrepManager) printMatches() {
+	if !gm.settings.verboseMode && len(gm.matches) > 0 {
+		path := gm.matches[0].path
+		fmt.Println(path)
+		for _, match := range gm.matches {
+			if path != match.path {
+				fmt.Println(match.path)
+				path = match.path
+			}
+			match.printInfo()
+		}
+	}
+
+	fmt.Printf("Files with matches: %d\n", gm.fileCount)
+	fmt.Printf("Total matches: %d\n", gm.matchCount)
+}
+
 func resultsWorker(results <-chan []GrepMatch, matches *[]GrepMatch, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for result := range results {
@@ -121,21 +138,4 @@ out:
 			break out
 		}
 	}
-}
-
-func (gm *GrepManager) printMatches() {
-	if !gm.settings.verboseMode && len(gm.matches) > 0 {
-		path := gm.matches[0].path
-		fmt.Println(path)
-		for _, match := range gm.matches {
-			if path != match.path {
-				fmt.Println(match.path)
-				path = match.path
-			}
-			match.printInfo()
-		}
-	}
-
-	fmt.Printf("Files with matches: %d\n", gm.fileCount)
-	fmt.Printf("Total matches: %d\n", gm.matchCount)
 }
